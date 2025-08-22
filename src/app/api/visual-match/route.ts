@@ -45,15 +45,19 @@ function createTestPage(htmlA: string, htmlB: string): string {
       gap: 40px;
       padding: 20px;
       background: #ffffff;
+      min-height: 100vh;
     }
     .test-div {
       width: 400px;
       height: 300px;
       padding: 20px;
       background: #ffffff;
-      border: none;
+      border: 1px solid #e5e7eb;
       overflow: hidden;
       position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     /* Ensure consistent rendering */
     .test-div * {
@@ -88,9 +92,13 @@ async function captureElementScreenshot(
     throw new Error(`Element with ID ${elementId} not found`);
   }
 
+  // Wait for the element to be fully rendered
+  await page.waitForSelector(`#${elementId}`, { timeout: 5000 });
+
   const screenshot = await element.screenshot({
     type: "png",
     omitBackground: false,
+    captureBeyondViewport: false,
   });
 
   return screenshot as Buffer;
@@ -205,7 +213,7 @@ export async function POST(req: NextRequest) {
     const page: Page = await browser.newPage();
     await page.setViewport({
       width: 500,
-      height: 500,
+      height: 800,
       deviceScaleFactor: 1,
     });
 
@@ -218,7 +226,19 @@ export async function POST(req: NextRequest) {
       { timeout: 10000 },
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const divA = await page.$("#divA");
+    const divB = await page.$("#divB");
+
+    if (divA) {
+      const boxA = await divA.boundingBox();
+      console.log("divA dimensions:", boxA);
+    }
+    if (divB) {
+      const boxB = await divB.boundingBox();
+      console.log("divB dimensions:", boxB);
+    }
 
     const [screenshotA, screenshotB] = await Promise.all([
       captureElementScreenshot(page, "divA"),
@@ -251,7 +271,6 @@ export async function POST(req: NextRequest) {
         console.error("Failed to close browser:", closeError);
       }
     }
-
     console.error("PNG Visual match error:", error);
 
     return NextResponse.json(
